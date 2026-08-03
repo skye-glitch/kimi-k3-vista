@@ -1,0 +1,15 @@
+/.cache/
+/images/
+/logs/
+/models/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+*.swp
+*.swo
+.DS_Store
+slurm-*.out
