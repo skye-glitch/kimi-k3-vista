@@ -35,9 +35,6 @@ fi
 
 echo "Resolved Job $job_id rank-0 host: $rank0_host" >&2
 
-module load gcc/13.2.0
-module load cuda/12.6
-module load python3/3.11.8
 
 exec python3 "$project_root/scripts/chat.py" \
     --job-id "$job_id" \

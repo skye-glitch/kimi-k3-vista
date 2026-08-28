@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=k3-sglang
-#SBATCH --partition=gh
-#SBATCH --nodes=32
-#SBATCH --ntasks=32
+#SBATCH --nodes=8
+#SBATCH --ntasks=8
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=04:00:00
 #SBATCH --output=/dev/null
+#SBATCH -A ASC26075
+#SBATCH -p debug
 
 root_dir=${KIMI_K3_ROOT:-${SLURM_SUBMIT_DIR:?SLURM_SUBMIT_DIR is required}}
 job_id=${SLURM_JOB_ID:?SLURM_JOB_ID is required}
@@ -15,9 +16,8 @@ mkdir -p "$KIMI_JOB_LOG_DIR"
 exec >"$KIMI_JOB_LOG_DIR/k3-server.out" 2>&1
 cd "$KIMI_JOB_LOG_DIR"
 
-module load gcc/13.2.0
-module load cuda/12.6
-module load python3/3.11.8
+module load gcc
+module load cuda
 module load tacc-apptainer
 
 set -euo pipefail
@@ -42,14 +42,15 @@ export KIMI_GPU_MONITOR_INTERVAL=${KIMI_GPU_MONITOR_INTERVAL:-15}
 bash "$KIMI_K3_ROOT/scripts/preflight.sh"
 
 export MASTER_ADDR
-MASTER_ADDR=$(ip -4 -o addr show ibP2s2 | awk '{sub(/\/.*/, "", $4); print $4; exit}')
-[[ -n "$MASTER_ADDR" ]] || { echo "Could not resolve rank-0 ibP2s2 address." >&2; exit 2; }
+# Updated InfiniBand interface for Horizon
+MASTER_ADDR=$(ip -4 -o addr show ibs2 | awk '{sub(/\/.*/, "", $4); print $4; exit}')
+[[ -n "$MASTER_ADDR" ]] || { echo "Could not resolve rank-0 ibs2 address." >&2; exit 2; }
 
 echo "K3 rank-0 host: $(hostname)"
 echo "K3 rank-0 IB address: $MASTER_ADDR"
 echo "OpenAI-compatible endpoint after startup: http://$(hostname):30000/v1"
 echo "Startup timeout: ${KIMI_STARTUP_TIMEOUT}s; Hello timeout: ${KIMI_HELLO_TIMEOUT}s"
-echo "This four-hour 32-node validation job costs at most 128 Vista SUs."
+echo "This four-hour 8-node validation job costs at most 32 Horizon SUs."
 
 gpu_csv="$KIMI_JOB_LOG_DIR/k3-gpu.csv"
 gpu_monitor_log="$KIMI_JOB_LOG_DIR/k3-gpu-monitor.out"
@@ -63,8 +64,8 @@ echo "GPU monitoring: every ${KIMI_GPU_MONITOR_INTERVAL}s -> $gpu_csv"
 echo "GPU monitor log: $gpu_monitor_log"
 
 srun \
-    --nodes=32 \
-    --ntasks=32 \
+    --nodes=8 \
+    --ntasks=8 \
     --ntasks-per-node=1 \
     --kill-on-bad-exit=1 \
     --output="$KIMI_JOB_LOG_DIR/k3-rank-%t.out" \
@@ -86,9 +87,6 @@ trap cleanup EXIT
 ready=0
 deadline=$((SECONDS + KIMI_STARTUP_TIMEOUT))
 while (( SECONDS < deadline )); do
-    # /model_info becomes available before SGLang's internal VLM warmup.  In
-    # contrast, /health_generate returns 503 while ServerStatus is Starting
-    # and 200 only after warmup plus a one-token generation health check.
     if curl --silent --show-error --fail --max-time 60 \
         "http://127.0.0.1:30000/health_generate" >/dev/null 2>&1; then
         ready=1

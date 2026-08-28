@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-module load gcc/13.2.0
-module load cuda/12.6
-module load python3/3.11.8
-module load tacc-apptainer
 
 set -euo pipefail
 
@@ -15,8 +11,8 @@ node_rank=${SLURM_PROCID:?This script must run under srun}
 node_count=${SLURM_NNODES:?This script must run inside a Slurm job}
 model_load_threads=${KIMI_MODEL_LOAD_THREADS:-2}
 
-if [[ "$node_count" -ne 32 ]]; then
-    echo "The production K3 launcher requires exactly 32 one-GPU GH200 nodes; got $node_count." >&2
+if [[ "$node_count" -ne 8 ]]; then
+    echo "The production K3 launcher requires exactly 8 four-GPU GB200 nodes; got $node_count." >&2
     exit 2
 fi
 if ! [[ "$model_load_threads" =~ ^[1-9][0-9]*$ ]]; then
@@ -25,7 +21,7 @@ if ! [[ "$model_load_threads" =~ ^[1-9][0-9]*$ ]]; then
 fi
 model_loader_extra_config="{\"num_threads\": $model_load_threads}"
 
-image_path="$root_dir/images/sglang-kimi-k3-cu12-74968e5653-arm64.sif"
+image_path="$root_dir/images/sglang-kimi-k3.sif"
 host_hf_home=${HF_HOME:-$root_dir/.cache/huggingface}
 host_tvm_ffi_cache=${TVM_FFI_CACHE_DIR:-$HOME/.cache/tvm-ffi}
 [[ -r "$image_path" ]] || { echo "Missing image: $image_path" >&2; exit 2; }
@@ -43,15 +39,19 @@ if [[ "$host_tvm_ffi_cache" != "$root_dir" &&
     bind_args+=(--bind "$host_tvm_ffi_cache:$host_tvm_ffi_cache")
 fi
 
-host_ip=$(ip -4 -o addr show ibP2s2 | awk '{sub(/\/.*/, "", $4); print $4; exit}')
-[[ -n "$host_ip" ]] || { echo "Could not resolve ibP2s2 IPv4 address." >&2; exit 2; }
+host_ip=$(ip -4 -o addr show ibs2 | awk '{sub(/\/.*/, "", $4); print $4; exit}')
+[[ -n "$host_ip" ]] || { echo "Could not resolve ibs2 IPv4 address." >&2; exit 2; }
+
+export APPTAINERENV_NCCL_SOCKET_IFNAME=ibs2
+export APPTAINERENV_GLOO_SOCKET_IFNAME=ibs2
+export APPTAINERENV_NCCL_IB_HCA=mlx5_0,mlx5_1,mlx5_4,mlx5_5 
 
 export APPTAINERENV_PYTHONNOUSERSITE=1
 export APPTAINERENV_HF_HOME="$host_hf_home"
 export APPTAINERENV_HF_HUB_OFFLINE=1
 export APPTAINERENV_TVM_FFI_CACHE_DIR="$host_tvm_ffi_cache"
-export APPTAINERENV_NCCL_SOCKET_IFNAME=ibP2s2
-export APPTAINERENV_GLOO_SOCKET_IFNAME=ibP2s2
+export APPTAINERENV_NCCL_SOCKET_IFNAME=ibs2,ibP2p1s0,ibP16s4,ibP18p1s0
+export APPTAINERENV_GLOO_SOCKET_IFNAME=ibs2,ibP2p1s0,ibP16s4,ibP18p1s0
 export APPTAINERENV_NCCL_IB_HCA=mlx5_0
 export APPTAINERENV_NCCL_IB_DISABLE=0
 export APPTAINERENV_NCCL_CUMEM_ENABLE=1
@@ -87,7 +87,7 @@ exec apptainer exec \
         --weight-loader-drop-cache-after-load \
         --tp-size 32 \
         --ep-size 32 \
-        --nnodes 32 \
+        --nnodes 8 \
         --node-rank "$node_rank" \
         --dist-init-addr "$master_addr:20000" \
         --dist-timeout 7200 \
@@ -96,15 +96,15 @@ exec apptainer exec \
         --enable-symm-mem \
         --attention-backend flashinfer \
         --prefill-attention-backend flashinfer \
-        --decode-attention-backend flashmla \
+        --decode-attention-backend trtllm_mla \
         --mamba-full-memory-ratio 0.45 \
         --mamba-ssm-dtype bfloat16 \
         --mamba-radix-cache-strategy extra_buffer_lazy \
         --kv-cache-dtype fp8_e4m3 \
         --mem-fraction-static 0.80 \
         --context-length 32768 \
-        --chunked-prefill-size 4096 \
-        --max-running-requests 16 \
+        --chunked-prefill-size 8192 \
+        --max-running-requests 32 \
         --mm-feature-transport cpu \
         --cuda-graph-backend-decode disabled \
         --cuda-graph-backend-prefill disabled \

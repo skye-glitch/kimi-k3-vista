@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-module load gcc/13.2.0
-module load cuda/12.6
-module load python3/3.11.8
+module load gcc
+module load cuda
+module load tacc-apptainer
 
 set -euo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root_dir=${KIMI_K3_ROOT:-$(cd "$script_dir/.." && pwd)}
-image_path="$root_dir/images/sglang-kimi-k3-cu12-74968e5653-arm64.sif"
+image_path="$root_dir/images/sglang-kimi-k3.sif"
 model_path=${KIMI_MODEL_PATH:-$root_dir/models/Kimi-K3}
 
 [[ -r "$image_path" ]] || { echo "FAIL: missing SGLang image: $image_path" >&2; exit 1; }

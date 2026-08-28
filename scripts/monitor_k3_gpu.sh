@@ -2,9 +2,9 @@
 
 set -eo pipefail
 
-module load gcc/13.2.0
-module load cuda/12.6
-module load python3/3.11.8
+module load gcc
+module load cuda
+module load tacc-apptainer
 
 set -u
 
