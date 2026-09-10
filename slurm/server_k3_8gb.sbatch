@@ -3,7 +3,9 @@
 #SBATCH --nodes=8
 #SBATCH --ntasks=8
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=72
+#SBATCH --exclusive
+#SBATCH --time=14:00:00
 #SBATCH --output=/dev/null
 #SBATCH -A ASC26075
 #SBATCH -p debug
@@ -67,6 +69,7 @@ srun \
     --nodes=8 \
     --ntasks=8 \
     --ntasks-per-node=1 \
+    --cpus-per-task=72 \
     --kill-on-bad-exit=1 \
     --output="$KIMI_JOB_LOG_DIR/k3-rank-%t.out" \
     bash "$KIMI_K3_ROOT/scripts/launch_k3_rank.sh" &

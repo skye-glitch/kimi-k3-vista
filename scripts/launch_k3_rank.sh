@@ -50,9 +50,8 @@ export APPTAINERENV_PYTHONNOUSERSITE=1
 export APPTAINERENV_HF_HOME="$host_hf_home"
 export APPTAINERENV_HF_HUB_OFFLINE=1
 export APPTAINERENV_TVM_FFI_CACHE_DIR="$host_tvm_ffi_cache"
-export APPTAINERENV_NCCL_SOCKET_IFNAME=ibs2,ibP2p1s0,ibP16s4,ibP18p1s0
-export APPTAINERENV_GLOO_SOCKET_IFNAME=ibs2,ibP2p1s0,ibP16s4,ibP18p1s0
-export APPTAINERENV_NCCL_IB_HCA=mlx5_0
+export APPTAINERENV_NCCL_SOCKET_IFNAME="ibs2"
+export APPTAINERENV_GLOO_SOCKET_IFNAME="ibs2"
 export APPTAINERENV_NCCL_IB_DISABLE=0
 export APPTAINERENV_NCCL_CUMEM_ENABLE=1
 export APPTAINERENV_NCCL_MNNVL_ENABLE=1
@@ -64,6 +63,8 @@ export APPTAINERENV_SGLANG_HOST_IP="$host_ip"
 export APPTAINERENV_SGLANG_SORT_WEIGHT_FILES=1
 export APPTAINERENV_TRITON_CACHE_DIR="/tmp/kimi_k3_triton_${SLURM_JOB_ID}_${node_rank}"
 export APPTAINERENV_TORCHINDUCTOR_CACHE_DIR="/tmp/kimi_k3_inductor_${SLURM_JOB_ID}_${node_rank}"
+export APPTAINERENV_TORCH_DISTRIBUTED_TIMEOUT=7200
+export APPTAINERENV_NCCL_TIMEOUT=7200
 
 echo "rank=$node_rank host=$(hostname) ib=$host_ip master=$master_addr tvm_ffi_cache=$host_tvm_ffi_cache model_load_threads=$model_load_threads shard_stagger=1"
 
